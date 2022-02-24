@@ -1,230 +1,244 @@
 --схема БД: https://docs.google.com/document/d/1NVORWgdwlKepKq_b8SPRaSpraltxoMg2SIusTEN6mEQ/edit?usp=sharing
+--colab/jupyter: https://colab.research.google.com/drive/1j4XdGIU__NYPVpv74vQa9HUOAkxsgUez?usp=sharing
+--Классная работа 
+--task1  (lesson4)
+-- Корабли: Вывести список кораблей, у которых начинается с буквы "S"
+select * from ships where name like 'S%'
 
---task1
---Корабли: Для каждого класса определите число кораблей этого класса, потопленных в сражениях. Вывести: класс и число потопленных кораблей.
-select c.class, count(o.result)
-	from classes c
-left join ships s 
-	on s.class = c.class
-left join outcomes o 
-	on s.name = o.ship
-where o.result = 'sunk' or o.result is NULL
-group by c.class
+--task2  (lesson4)
+-- Компьютерная фирма: Сделать view (название: pc_with_flag_speed_price) над таблицей PC c флагом: flag = 1 для тех, у кого speed > 500 и price < 900, для остальных flag = 0
 
-
---task2
---Корабли: Для каждого класса определите год, когда был спущен на воду первый корабль этого класса. 
---Если год спуска на воду головного корабля неизвестен, определите минимальный год спуска на воду кораблей этого класса. Вывести: класс, год.
-
-with t1 as (select class, launched from ships where class = name),
-	 t2 as (select s.class, min(s.launched) 
-	 		  from ships s, t1 
-	 		where s.class not in (select class from t1)
-	 		group by s.class)
-select c.class, t3.launched from classes c
-left join (select * from t1 
-			union 
-		   select * from t2) t3
-	on t3.class = c.class
-
---task3
---Корабли: Для классов, имеющих потери в виде потопленных кораблей и не менее 3 кораблей в базе данных, вывести имя класса и число потопленных кораблей.
-
-with t as (select s.class
-				from ships s 
-			group by s.class
-			having count(s.name) >= 3)
-select c.class, count(o.result) as sunk_number
-	from classes c
-left join ships s 
-	on s.class = c.class
-left join outcomes o 
-	on s.name = o.ship
-join t on c.class = t.class
-where o.result = 'sunk'
-group by c.class
-
-
---task4
---Корабли: Найдите названия кораблей, имеющих наибольшее число орудий среди всех кораблей такого же водоизмещения (учесть корабли из таблицы Outcomes).
-
-
-select b.name from (select c.class,
-					       a.name, 
-					       c.numguns, 
-					       c.displacement, 
-					       rank() over(partition by c.displacement ORDER BY numguns desc) as num
-						from classes c
-					left join (select class, name from ships 
-								union
-							   select ship as class, ship as name from outcomes o) a
-					on c.class = a.class
-					) b
-where b.num = 1
-
---task5
---Компьютерная фирма: Найдите производителей принтеров, которые производят ПК с наименьшим объемом RAM и с самым быстрым процессором среди всех ПК, имеющих наименьший объем RAM. Вывести: Maker
-with t as (select min(ram) as ram from pc),
-	 t1 as (select max(pc.speed) as speed from pc, t where pc.ram = t.ram),
-	 t2 as (select  distinct p.maker 
-				from pc, t, t1, product p
-			where t.ram = pc.ram 
-			    and t1.speed = pc.speed
-				and p.model = pc.model)
-select distinct maker from product p
-where type = 'Printer' and maker in (select maker from t2)
-
---Классная работа:
---Компьютерная фирма: Найдите среднюю цену всех устройств, сгруппированую по производителям и типу . 
---Вывод: цена, производитель
-
-with t as	(select model, price from pc
-			union
-			select model, price from printer p 
-			union
-			select model, price from laptop l)
-select maker, avg(price) from product p 
-left join t on p.model = t.model
-group by maker, type
-
---task2
---Корабли: Вывести список кораблей, у которых class отсутствует (IS NULL).
-select * from ships
-where class is not null
-
---task3
---Компьютерная фирма: Найти поставщиков/производителей компьютеров, моделей которых нет в продаже
--- (то есть модели этих поставщиков отсутствуют в таблице PC)
-
-
-select distinct maker from product p 
-left join pc on p.model = pc.model
-where p.type = 'PC' and pc.model is null
-
---task4
---Компьютерная фирма: Найти модели и цены портативных компьютеров, стоимость которых превышает стоимость любого ПК
-
-select model, price from laptop
-where price > all (select price from pc)
-
-
---task5 +++
---Компьютерная фирма: Найдите номер модели продукта (ПК, ПК-блокнота или принтера), 
---имеющего самую высокую цену. Вывести: model
-
-select model from (select model, price from pc
-					union
-					select model, price from printer p 
-					union
-					select model, price from laptop l
-					order by price desc
-					limit 1) t
-					
---task6
---Компьютерная фирма: При выводе всех значений из таблицы printer дополнительно вывести для тех, 
---у кого цена больше 300 - "1", у остальных - "0"
-select p.code, p.model, p.color, p.type, p.price,
-	case
-		when p.price > 300
-		then '1'
-		else '0'
-	end dop
-from printer p
-
-
---task7
---Компьютерная фирма: При выводе всех значений из таблицы printer дополнительно вывести для тех, 
---у кого цена вышей средней - "1", у остальных - "0"
-
-with t as (select AVG(price) as price from printer)
-select *,
-case 
-	when p.price > t.price
-	then 1
-	else 0
-end dop
-from printer p, t
-
-
-
---task9
---Компьютерная фирма: Вывести список всех уникальных PC и производителя с ценой выше хотя бы одного принтера. 
---Вывод: model, maker
-
-select distinct pc.model, p.maker
+create view pc_with_flag_speed_price
+as 
+	select pc.*,
+		   case 
+		   		when pc.speed > 500 and pc.price < 900
+		   		then 1
+		   		else 0
+		   end	
 	from pc 
-left join product p on pc.model = p.model
-where pc.price > any(select price from printer)
+	
+	
+--task3  (lesson4)
+-- Компьютерная фирма: Сделать view (название: pc_maker_a) со всеми товарами производителя A. В view должны быть следующие колонки: model, price
+	create view pc_maker_a
+	as
+		select pr.model, a.price 
+			from product pr
+		left join 
+				(select pc.model, pc.price from pc 
+				union
+				select pr.model, pr.price from printer pr 
+				union 
+				select l.model, l.price from laptop l) a
+		 on a.model = pr.model 
+		where pr.maker = 'A'
+
+--task4 (lesson4)
+-- Компьютерная фирма: Сделать копию таблицы laptop (название: laptop_under_1000) и удалить из нее все товары с ценой выше 1000.
+		
+	create table laptop_under_1000
+	as
+		(select * from laptop where price <= 1000)
+
+--task5 (lesson4)
+-- Компьютерная фирма: Сделать копию таблицы (название: all_products) со средней стоимостью всех продуктов, с максимальной ценой и количеством по каждому производителю. (дубликаты можно учитывать).
+create table all_products
+as
+(with t as	(select pr.maker,pr.type,  pr.model, a.price
+				from product pr
+			left join 
+					(select pc.model, pc.price from pc 
+					union
+					select pr.model, pr.price from printer pr 
+					union 
+					select l.model, l.price from laptop l) a
+			 on a.model = pr.model )
+select  maker,
+		avg(price) as avg_price,
+		max(price) as max_price,
+		count(1) as count_product
+from t
+group by maker)
+		
+--task6 (lesson4)
+-- Компьютерная фирма: Построить по all_products график в colab/jupyter (X: maker, Y: средняя цена)
+
+--task7 (lesson4)
+
+--task8 (lesson4)
+-- Компьютерная фирма: Сделать view (название products_price_categories), в котором по всем продуктам нужно посчитать количество продуктов всего в зависимости от цены:
+-- Если цена > 1000, то category_price = 2
+-- Если цена < 1000 и цена > 500, то  category_price = 1
+-- иначе category_price = 0
+-- Вывести: category_price, count
+create view products_price_categories
+as
+(with t as	(select 
+				case 
+					when a.price > 1000
+					then 2
+					when a.price <1000 and a.price > 500
+					then 1
+					else 0
+				end category_price
+				from product pr
+			left join 
+					(select pc.model, pc.price from pc 
+					union
+					select pr.model, pr.price from printer pr 
+					union 
+					select l.model, l.price from laptop l) a
+			 on a.model = pr.model)
+select category_price, count(category_price) from t
+group by category_price
+order by category_price)
 
 
---task10
---Компьютерная фирма: Вывести список всех уникальных продуктов и производителя в рамках БД. Вывести model, maker
-with t as	(select model from pc
-			union
-			select model from printer p 
-			union
-			select model from laptop l)
-select distinct t.model, maker from t 
-left join product p on p.model = t.model
+--task9 (lesson4)
+-- Сделать предыдущее задание, но дополнительно разбить еще по производителям (название products_price_categories_with_makers). Вывести: category_price, count, price
+create view products_price_categories_with_makers
+as
+(with t as	(select pr.maker,
+				case 
+					when a.price > 1000
+					then 2
+					when a.price <1000 and a.price > 500
+					then 1
+					else 0
+				end category_price
+				from product pr
+			left join 
+					(select pc.model, pc.price from pc 
+					union
+					select pr.model, pr.price from printer pr 
+					union 
+					select l.model, l.price from laptop l) a
+			 on a.model = pr.model)
+select category_price, maker, count(category_price) from t
+group by category_price, maker
+order by category_price)
 
-select distinct model, maker from product
+
+--task10 (lesson4)
+-- Компьютерная фирма: На базе products_price_categories_with_makers по строить по каждому производителю график (X: category_price, Y: count)
+
+--task11 (lesson4)
+-- Компьютерная фирма: На базе products_price_categories_with_makers по строить по A & D график (X: category_price, Y: count)
+
+--task12 (lesson4)
+-- Корабли: Сделать копию таблицы ships, но у название корабля не должно начинаться с буквы N (ships_without_n)
+create table ships_without_n
+as
+(select * from ships s 
+where s.name not like 'N%')
+
+--Домашняя работа:
 
 
---task11
---Корабли: Вывести список всех кораблей и класс. Для тех у кого нет класса - вывести 0, для остальных - class
-select s.name, 
+--task1  (lesson4)
+-- Компьютерная фирма: Сделать view (название all_products_flag_300) для всех товаров (pc, printer, laptop) с флагом, если стоимость больше > 300. Во view три колонки: model, price, flag
+create view all_products_flag_300
+as
+(select a.model, a.price,
 	case 
-		when c.class is  null
-		then '0'
-		else c.class
-	end clas
-from ships s
-	left join classes c 
-		on c.class = s.class
+		when a.price > 300
+		then 1
+		else 0
+	end flag
+	from 
+		(select pc.model, pc.price from pc 
+		union
+		select pr.model, pr.price from printer pr 
+		union 
+		select l.model, l.price from laptop l) a)
 
---task12
---Корабли: Для каждого класса определить год, когда был спущен на воду первый корабль этого класса. 
---Вывести: класс, год
+--task2  (lesson4)
+-- Компьютерная фирма: Сделать view (название all_products_flag_avg_price) для всех товаров (pc, printer, laptop) с флагом, если стоимость больше cредней . Во view три колонки: model, price, flag
 
-select class, min(launched) as first_launch
-	from ships s
-group by class
+--task3  (lesson4)
+-- Компьютерная фирма: Вывести все принтеры производителя = 'A' со стоимостью выше средней по принтерам производителя = 'D' и 'C'. Вывести model
+with t as (select p.*, pr.maker from product pr
+			join printer p on pr.model = p.model),
+	t1 as (select avg(price) from t
+			where t.maker = 'D' or t.maker = 'C')
+	select * from t
+	where maker = 'A' and price > (select * from t1)
+--task4 (lesson4)
+-- Компьютерная фирма: Вывести все товары производителя = 'A' со стоимостью выше средней по принтерам производителя = 'D' и 'C'. Вывести model
 
---task13
---Компьютерная фирма: Вывести список всех продуктов и происзводителя с указанием типа продукта (pc, printer, laptpo). Вывести: model, maker, type
-select * from product
+--task5 (lesson4)
+-- Компьютерная фирма: Какая средняя цена среди  продуктов производителя = 'A' (printer & laptop & pc) - является что уникальным продуктом
+select pr.model, a.price 
+			from product pr
+		left join 
+				(select pc.model, pc.price from pc 
+				union
+				select pr.model, pr.price from printer pr 
+				union 
+				select l.model, l.price from laptop l) a
+		 on a.model = pr.model 
+		where pr.maker = 'A'
+	
+--task6 (lesson4)
+-- Компьютерная фирма: Сделать view с количеством товаров (название count_products_by_makers) по каждому производителю. Во view: maker, count
+create view  count_products_by_makers
+as
+	(select pr.maker, count(1)
+			from product pr
+		left join 
+				(select pc.model, pc.price from pc 
+				union
+				select pr.model, pr.price from printer pr 
+				union 
+				select l.model, l.price from laptop l) a
+		 on a.model = pr.model 	
+	group by maker)
 
---task14
---Компьютерная фирма: При выводе всех значений из таблицы printer дополнительно вывести для тех, у кого цена вышей средней PC - "1", у остальных - "0"
-with t as (select avg(price) as avg_price from pc)
-select pr.*, 
-	 case 
-	 	when pr.price < t.avg_price
-	 	then 0
-	 	else 1
-	 end dif
-  from printer pr, t
+
+--task7 (lesson4)
+-- По предыдущему view (count_products_by_makers) сделать график в colab (X: maker, y: count)
+
+--task8 (lesson4)
+-- Компьютерная фирма: Сделать копию таблицы printer (название printer_updated) и удалить из нее все принтеры производителя 'D'
+create table printer_updated
+as
+(select pr.* from printer pr
+join product p on pr.model = p.model
+where p.maker != 'D')
+
+--task9 (lesson4)
+-- Компьютерная фирма: Сделать на базе таблицы (printer_updated) view с дополнительной колонкой производителя (название printer_updated_with_makers)
+create view printer_updated_with_makers
+as
+(select pu.*, p.maker from printer_updated pu
+left join product p on pu.model = p.model)
+
+--task10 (lesson4)
+-- Корабли: Сделать view c количеством потопленных кораблей и классом корабля (название sunk_ships_by_classes). Во view: count, class (если значения класса нет/IS NULL, то заменить на 0)
+
+select * from ships
+
+--task11 (lesson4)
+-- Корабли: По предыдущему view (sunk_ships_by_classes) сделать график в colab (X: class, Y: count)
+
+--task12 (lesson4)
+-- Корабли: Сделать копию таблицы classes (название classes_with_flag) и добавить в нее flag: если количество орудий больше или равно 9 - то 1, иначе 0
+
+--task13 (lesson4)
+-- Корабли: Сделать график в colab по таблице classes с количеством классов по странам (X: country, Y: count)
+
+--task14 (lesson4)
+-- Корабли: Вернуть количество кораблей, у которых название начинается с буквы "O" или "M".
+
+--task15 (lesson4)
+-- Корабли: Вернуть количество кораблей, у которых название состоит из двух слов.
+
+--task16 (lesson4)
+-- Корабли: Построить график с количеством запущенных на воду кораблей и годом запуска (X: year, Y: count)
 
 
---task15
---Корабли: Вывести список кораблей, у которых class отсутствует (IS NULL)
-  
-  select name from ships s 
-  where class is null
 
---task16
---Корабли: Укажите сражения, которые произошли в годы, не совпадающие ни с одним из годов спуска кораблей на воду. (через with)
-  with t as (select distinct launched from ships)
-  select distinct name from battles b 
-  where extract(year from date) not in (select * from t)
-  
---task17
---Корабли: Найдите сражения, в которых участвовали корабли класса Kongo из таблицы Ships.
-
-with t as (select name from ships where class = 'Kongo')
-
-select distinct battle from outcomes o
- where o.ship in (select * from t)
 
 
 
