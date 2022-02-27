@@ -4,14 +4,14 @@
 --task1 (lesson5)
 -- Компьютерная фирма: Сделать view (pages_all_products), в которой будет постраничная разбивка всех продуктов (не более двух продуктов на одной странице).
 -- Вывод: все данные из laptop, номер страницы, список всех страниц
-    CREATE PROC paging
-      @n int =2 -- число записей на страницу, по умолчанию 2
-    , @p int =1 -- номер страницы, по умолчанию - первая
-    AS
-    SELECT * FROM Laptop
-    ORDER BY price DESC OFFSET @n*(@p-1) ROWS FETCH NEXT @n ROWS ONLY;
 
-select * from laptop
+with t as (select *,
+		   row_number() over(order by price) as num
+		   from laptop),
+	 t1 as (select *, (num + 1) /2 as page from t)
+select *,
+	   row_number() over (partition by page order by num) as prod
+	   from t1
 
 --task2 (lesson5)
 -- Компьютерная фирма: Сделать view (distribution_by_type), в рамках которого будет процентное соотношение всех товаров по типу устройства. Вывод: производитель, тип, процент (%)
