@@ -177,7 +177,7 @@ from classes c)
 
 --task14 (lesson4)
 -- Корабли: Вернуть количество кораблей, у которых название начинается с буквы "O" или "M".
-select * from ships
+select count(distinct name) from ships
 where name like 'O%' or name like 'M%'
 
 --task15 (lesson4)
