@@ -5,8 +5,8 @@ import pandas as pd
 conn = sqlite3.connect('test_database')
 c = conn.cursor()
 df = pd.io.sql.read_sql("""select * from prediction""", conn)
-df_check = df[df.fraud != df.fraud_basic].tail(10)
 
+st.title("Информация о тестовой выборке", anchor=None)
 button1 = st.button('Показать количество фродовых трансакций')
 if st.session_state.get('button') != True:
     st.session_state['button'] = button1 
@@ -18,9 +18,7 @@ if st.session_state['button'] == True:
     df_fraud_week = df[(df.step > (df.step.max() - period_dict[option])) & (df.fraud == 1)]
     st.write(len(df_fraud_week))
     
-button2 = st.button("Показать последние 10 трансакций, требующие проверки")
-    
-if button2:
-        if len(df[df.fraud != df.fraud_basic]) >= 10:
-            st.dataframe(df[df.fraud != df.fraud_basic].tail(10))
-        else: st.write("В датафрейме меньше, чем 10 трансакций, требующих проверки")
+if  st.button("Показать последние 10 трансакций, требующие проверки"):
+    if len(df[df.fraud_basic == 1]) >= 10:
+        st.write(df[df.fraud_basic == 1].tail(10))
+    else: st.write("В датафрейме меньше, чем 10 трансакций, требующих проверки")
